@@ -1,0 +1,152 @@
+<html><head>
+<script>
+function get(id) {
+  return document.getElementById(id);
+}
+
+Number.prototype.roundCents = function() {
+  return Math.round(this*100)/100;
+}
+
+Number.prototype.formatMonths = function() {
+  var year = Math.floor(this / 12);
+  var month = this % 12;
+  if(year == 0)
+    return 'month ' + month;
+  return 'year ' + year + ' month ' + month;
+}
+
+// c = decimal count
+// d = decimal char
+// t = thousand char
+Number.prototype.formatMoney = function(c,d,t) {
+var n = this,
+    c = c == undefined ? 2 : isNaN(c = Math.abs(c)) ? 2 : c,
+    d = d == undefined ? "." : d,
+    t = t == undefined ? "," : t,
+    s = n < 0 ? "-" : "",
+    i = parseInt(n = Math.abs(+n || 0).toFixed(c)) + "",
+    j = (j = i.length) > 3 ? j % 3 : 0;
+   return s + (j ? i.substr(0, j) + t : "") + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) + (c ? d + Math.abs(n - i).toFixed(c).slice(2) : "");
+}
+
+function Calculate() {
+  var totalLoan = parseFloat(get('LoanAmount').value.replace(',','')).roundCents();
+  var interestPercent = parseFloat(get('Interest').value.replace(',','')).roundCents();
+  //var years = parseFloat(get('Years').value.replace(',',''));
+  var monthly = parseFloat(get('MonthlyPayment').value.replace(',','')).roundCents();
+
+  var interest = interestPercent / 100;
+
+  // Check parameters
+  var firstMonthInterest = (totalLoan * interest / 12).roundCents();
+  if(monthly <= firstMonthInterest) {
+    get('ScheduleDiv').innerHTML = 'Monthly payment ($' + monthly.formatMoney(2) +
+      ') is <strong>TOO LOW</strong> because it must be more than first month\'s interest ($' + firstMonthInterest.formatMoney(2) + ')';
+    return;
+  }
+
+  var loan = totalLoan;
+  var payment = 0;
+  var schedule = '<table>';
+  schedule += '<tr><th>Payment</th><th>Time</th>' +
+              '<th>Interest (Month)</th><th>Principal (Month)</th>' +
+              '<th>Interest (Total)</th><th>Principal (Total)</th><th>Paid to Date</th>' +
+              '<th>Principal Left</th></tr>';
+
+  var interestForTheMonth = 0;
+  var principalForTheMonth = 0;
+  var totalInterest = 0;
+  var totalPrincipal = 0;
+  while(true) {
+
+    // Print state after last payment
+    schedule += '<tr class="' + (((payment % 2) == 0) ? "EvenRow" : "OddRow") + '">' +
+      '<td>' + payment + '</td>' +
+      '<td>' + payment.formatMonths() + '</td>' +
+      '<td>$' + interestForTheMonth.formatMoney(2) + '</td>' +
+      '<td>$' + principalForTheMonth.formatMoney(2) + '</td>' +
+      '<td>$' + totalInterest.formatMoney(2) + '</td>' +
+      '<td>$' + totalPrincipal.formatMoney(2) + '</td>' +
+      '<td>$' + (totalInterest + totalPrincipal).formatMoney(2) + '</td>' +
+      '<td>$' + loan.formatMoney(2) + '</td>' +
+      '</tr>';
+
+    if(loan <= 0) break;
+
+    // Simulate Payment
+    interestForTheMonth = (loan * interest / 12).roundCents();
+    totalInterest += interestForTheMonth;
+    loan += interestForTheMonth;
+
+    if(loan >= monthly) {
+      principalForTheMonth = monthly - interestForTheMonth;
+      loan -= monthly;
+    } else {
+      principalForTheMonth = loan - interestForTheMonth;
+      loan = 0;
+    }
+    totalPrincipal += principalForTheMonth;
+
+    payment++;
+  }
+  schedule += '</table>';
+
+  var paymentMonthMod = payment % 12;
+  get('ScheduleDiv').innerHTML = '<table>' +
+    '<tr><td>Loan Amount:</td><td>$' + totalLoan.formatMoney(2) + '</td></tr>' +
+    '<tr><td>Interest Rate (%):</td><td>$' + interestPercent + ' %</td></tr>' +
+    '<tr><td>Monthly Payment:</td><td>$' + monthly.formatMoney(2) + '</td></tr>' +
+    '<tr><td>Number of Payments:</td><td>' + payment + '</td></tr>' +
+    '<tr><td>Loan Time:</td><td>' + Math.floor(payment/12) + ' years' +
+      ((paymentMonthMod > 0) ? (' ' + paymentMonthMod + ' months') : '') + '</td></tr>' +
+    '<tr><td>Total Interest:</td><td>$' + totalInterest.formatMoney(2) + '</td></tr>' +
+    '</table>' +
+    schedule;
+}
+</script>
+<style>
+table {
+ border-collapse: collapse;
+}
+table, th, td {
+ border: 0;
+}
+th {
+ border: 1px solid #aaa;
+ text-align:left;
+}
+.EvenRow {background-color:#eee;}
+</style>
+</head><body>
+
+<div data-currency-code="USD">
+  <h1>Loan calculator</h1>
+  <div>
+  <div>
+    <div>
+      <label>Loan amount:</label>
+      <input id="LoanAmount" type="text" value="100,000" />
+    </div>
+  </div>
+  <div>
+    <div>
+      <div>
+        <label>Interest Rate (%):</label>
+        <input id="Interest" type="text" value="3.92" step="0.01" />
+      </div>
+    </div>
+    <div>
+      <div>
+        <label>Monthly Payment:</label>
+        <input id="MonthlyPayment" type="text" value="800" step="0.01" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<button onclick="Calculate()">Calculate</button>
+
+<div id="ScheduleDiv"></div>
+
+</body></html>
